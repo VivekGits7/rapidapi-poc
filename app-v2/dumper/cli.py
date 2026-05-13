@@ -1,11 +1,11 @@
 """CLI entry point for the dumper.
 
 Usage:
-    guv -m dumper.cli run                       # one-shot full dump (resumes if a job is in flight)
-    guv -m dumper.cli resume                    # explicit resume (errors if no resumable job)
-    guv -m dumper.cli status                    # print latest job state
-    guv -m dumper.cli stop                      # signal running dump to stop gracefully
-    guv -m dumper.cli reset --yes-i-am-sure     # DANGEROUS: wipe all dumped data + sequences
+    guvrun -m dumper.cli run                       # one-shot full dump (resumes if a job is in flight)
+    guvrun -m dumper.cli resume                    # explicit resume (errors if no resumable job)
+    guvrun -m dumper.cli status                    # print latest job state
+    guvrun -m dumper.cli stop                      # signal running dump to stop gracefully
+    guvrun -m dumper.cli reset --yes-i-am-sure     # DANGEROUS: wipe all dumped data + sequences
 """
 
 import asyncio
