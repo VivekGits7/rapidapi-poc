@@ -1,0 +1,227 @@
+{
+	"info": {
+		"_postman_id": "dc6ad655-63b5-4e5f-876d-567ec8e7c2aa",
+		"name": "ECommerce ETA PreProd",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "5539334"
+	},
+	"item": [
+		{
+			"name": "RequestAccessToken",
+			"item": [
+				{
+					"name": "RquestAccessToken-ASG",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n\t\"client_id\": \"200020298-649049fd0396c8-35269236\",\r\n\t\"client_secret\": \"y4A0H1GjO4C1ivYZsVV50SyE5VgHa5dTWADi0UCs/vFBk50sDbe8xiAMOmHCAEJ3m4Y=\",\r\n    \"grant_type\": \"password\",\r\n\t\"CorrelationId\": \"111122223333545\"\r\n\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-ecommercetest.eta.gov.eg/asg/tax/ecom/RequestAccessToken",
+							"protocol": "https",
+							"host": [
+								"api-ecommercetest",
+								"eta",
+								"gov",
+								"eg"
+							],
+							"path": [
+								"asg",
+								"tax",
+								"ecom",
+								"RequestAccessToken"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "Success",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n\t\"client_id\": \"client_id_user_123\",\r\n\t\"client_secret\": \"client_secret_545454\",\r\n    \"grant_type\": \"password\",\r\n\t\"CorrelationId\": \"111122223333545\"\r\n\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://192.168.219.5:9338/asg/tax/ecom/RequestAccessToken",
+									"protocol": "http",
+									"host": [
+										"192",
+										"168",
+										"219",
+										"5"
+									],
+									"port": "9338",
+									"path": [
+										"asg",
+										"tax",
+										"ecom",
+										"RequestAccessToken"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "x-xss-protection",
+									"value": "1; mode=block"
+								},
+								{
+									"key": "x-content-type-options",
+									"value": "nosniff"
+								},
+								{
+									"key": "Server",
+									"value": "Apache-Coyote1.1"
+								},
+								{
+									"key": "x-frame-options",
+									"value": "SAMEORIGIN"
+								},
+								{
+									"key": "referrer-policy",
+									"value": "no-referrer"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 10 Jun 2023 12:17:07 GMT"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json;charset=UTF-8"
+								},
+								{
+									"key": "Content-Length",
+									"value": "1826"
+								},
+								{
+									"key": "Keep-Alive",
+									"value": "timeout=60"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ2eGNxZmVtOFlJNFhPem1xaVN5czU2MDl0eWVKNWlWNFZSM0RRc1QtUUJRIn0.eyJleHAiOjE2ODYzOTk3MjcsImlhdCI6MTY4NjM5OTQyNywianRpIjoiM2RjZjVjNGYtNjU3MS00OGQwLWJhMjktY2MyMzI0OTY5MTAxIiwiaXNzIjoiaHR0cHM6Ly9hdXRodGVzdC5ldGEuZ292LmVnOjgwODAvYXV0aC9yZWFsbXMvZWNvbW1lcmNlLWNsaWVudHMiLCJzdWIiOiJjMWZjZGNhZC1mYWZlLTQ2NjUtOTEwMC05OWI1MDM0NmM4YjgiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJhZG1pbi1yZXN0Iiwic2Vzc2lvbl9zdGF0ZSI6IjU0YzNkYmI4LThjNGUtNGYzYy1iNDM0LTMyZGM5MGM3N2I0MyIsImFjciI6IjEiLCJzY29wZSI6ImVtYWlsIHByb2ZpbGUiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6ImNsaWVudF9pZF91c2VyXzEyMyJ9.D3CaaZnKpCNuuVdFzBee5inRDqOOCsjQgf5mzhFH59SpOvtFDqOrkPovlkZrmwNknHbstzVDIDMgbrROLCQKWI5TG2Lu4VnBvrz07Ev8iPnMELMZBSiZTcuTjGaz_45GaIM_2R3t8uXuRJWilRGUoiSMc_sNobwgYbjyy_K5fRVP1UzDfCWWFueA7rpxK4ltlLHF_ZiR_GcDf6kpavV97qUEktfAWAipORfo0dhybSiUH4QTt_MHiLOvJt7t71QVuFB6APVMbcZExIz5IIdKbaUX24Opiwq47W2z8G0TdIPnqIWDmGcmti0SV0VDI3sDqkcOy8tPIPkkT3znTpXLVQ\",\n    \"expires_in\": 300,\n    \"refresh_expires_in\": 1800,\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI3MTI5MjY0NC05NjgzLTQyY2ItYTQ4OC04ZTk1YjY5ZWIxZDkifQ.eyJleHAiOjE2ODY0MDEyMjcsImlhdCI6MTY4NjM5OTQyNywianRpIjoiMTJmYzQyZGEtYTkyMS00NjUyLWI0MzgtZjNlNDBiMTY2NTRkIiwiaXNzIjoiaHR0cHM6Ly9hdXRodGVzdC5ldGEuZ292LmVnOjgwODAvYXV0aC9yZWFsbXMvZWNvbW1lcmNlLWNsaWVudHMiLCJhdWQiOiJodHRwczovL2F1dGh0ZXN0LmV0YS5nb3YuZWc6ODA4MC9hdXRoL3JlYWxtcy9lY29tbWVyY2UtY2xpZW50cyIsInN1YiI6ImMxZmNkY2FkLWZhZmUtNDY2NS05MTAwLTk5YjUwMzQ2YzhiOCIsInR5cCI6IlJlZnJlc2giLCJhenAiOiJhZG1pbi1yZXN0Iiwic2Vzc2lvbl9zdGF0ZSI6IjU0YzNkYmI4LThjNGUtNGYzYy1iNDM0LTMyZGM5MGM3N2I0MyIsInNjb3BlIjoiZW1haWwgcHJvZmlsZSJ9.2FdE6n2U1Qz4bqnu4m7BPf55oRZ2TmQkjq5Ekh3TLs0\",\n    \"token_type\": \"bearer\",\n    \"not-before-policy\": 0,\n    \"session_state\": \"54c3dbb8-8c4e-4f3c-b434-32dc90c77b43\",\n    \"scope\": \"email profile\"\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "ValidateAndSendTaxPayerOTP",
+			"item": [
+				{
+					"name": "SendOTP-ASG",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ2eGNxZmVtOFlJNFhPem1xaVN5czU2MDl0eWVKNWlWNFZSM0RRc1QtUUJRIn0.eyJleHAiOjE2ODcxODAwMjgsImlhdCI6MTY4NzE3OTcyOCwianRpIjoiZWI4MDM4YTQtOTJiOS00ZGEwLTlmNDYtODQyZWE1MDgxOWUwIiwiaXNzIjoiaHR0cHM6Ly9hdXRodGVzdC5ldGEuZ292LmVnOjgwODAvYXV0aC9yZWFsbXMvZWNvbW1lcmNlLWNsaWVudHMiLCJzdWIiOiJmOTRmZmZjNC02ZGM1LTQxZDQtYjc4Ny00OWYwMGY0YWNjN2QiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJhZG1pbi1yZXN0Iiwic2Vzc2lvbl9zdGF0ZSI6IjhjMjU5MmYzLTk4M2MtNDM1YS1hOTQzLWMwYTgyZTM1M2VkMSIsImFjciI6IjEiLCJzY29wZSI6ImVtYWlsIHByb2ZpbGUiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6IjIwMDAyMDI5OC02NDkwNDlmZDAzOTZjOC0zNTI2OTIzNiJ9.FSadvj8xfeLvBnRG00Co7RjTs9K0rSxGfW787ikAyQzb7RHC0jqq6LJdaSnaDgKaUX0h3oZ4dkat0gpuVa5awGueaCGpIiPC5lHzPjg7l1etkvfPohVky_d12BYEU9zL3Zbd6uaUsH1Cb0JYSCLNE5xcRAwsaUvL8PAGtgS-U16lDnCqu2DaUMhZ3sg6qG4biyvTtMtGLuMZieaOnhpvNSsj2wofsMKjywxkBIMpH7WkD9FHqCeERreJD5TRyubCYL4zTzT3NEAosTmeDP6O2CNtF7VVtFY6Nw68A6-IH1qN0tnAczIK4u0ZphApPIM4Zi5vcSOdXVGxawRrrWD4HA",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"validateTaxPayerAndsendOTPRequest\": {\r\n        \"correlationId\": \"aa702c17-a342-42b4-b87d-624c0a654c8c\",\r\n        \"trn\": \"200020298\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-ecommercetest.eta.gov.eg/asg/tax/validateTaxPayerAndsendOTP",
+							"protocol": "https",
+							"host": [
+								"api-ecommercetest",
+								"eta",
+								"gov",
+								"eg"
+							],
+							"path": [
+								"asg",
+								"tax",
+								"validateTaxPayerAndsendOTP"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "ValidateTaxPayerOTP",
+			"item": [
+				{
+					"name": "validateTaxPayerOTP-ASG",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ2eGNxZmVtOFlJNFhPem1xaVN5czU2MDl0eWVKNWlWNFZSM0RRc1QtUUJRIn0.eyJleHAiOjE2ODYyNTY0OTgsImlhdCI6MTY4NjI1NjE5OCwianRpIjoiYmRhMTFjZTctMzUxYi00MGNlLWFiMDktNjk0Nzg2ZTVmZjg1IiwiaXNzIjoiaHR0cHM6Ly9hdXRodGVzdC5ldGEuZ292LmVnOjgwODAvYXV0aC9yZWFsbXMvZWNvbW1lcmNlLWNsaWVudHMiLCJzdWIiOiJjMWZjZGNhZC1mYWZlLTQ2NjUtOTEwMC05OWI1MDM0NmM4YjgiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJhZG1pbi1yZXN0Iiwic2Vzc2lvbl9zdGF0ZSI6IjcyNzNiZDQxLWM3ZGEtNGUyMC05OTkxLTE4MzExNGExZTZiZSIsImFjciI6IjEiLCJzY29wZSI6ImVtYWlsIHByb2ZpbGUiLCJlbWFpbF92ZXJpZmllZCI6ZmFsc2UsInByZWZlcnJlZF91c2VybmFtZSI6ImNsaWVudF9pZF91c2VyXzEyMyJ9.ABkOXUBoIIl3UyI9M98w7lLav875lLwYaKr2Z3lEEvABZmX0MZgchKvVGVDPoW0NXvaZjyzaHc6fUGLlEf1QCW4CYCLWzYGl62IrA8lf1cbPRoT5ZD8kLDERvCQGzzcczSw_I92Mzl7YW2UlUrT3DWjaAvId2kc7-yH_vzNqpXSHPCofjAHFUARLs1Q00MXBLiFDqmhqnaNcw4HGjDQR92ReXNB-ZF-moFqH84tuUA1QOxms-Nmw_ViE3Rv-zP2eWfeT7XmxrnFqrR5X4pE-NwwTD_uM1uxvVy9zcrgPFW8YuTmgyza0QRY0Xd7yNHDG0RcSV_b_1YRK1BgNjBgVDQ",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"validateTaxPayerOTPRequest\": {\r\n    \"correlationId\": \"0483f175-f8c9-409a-b504-1d3d49751ddf\",\r\n    \"identifier\": \"4b39792f-6c19-4389-85d5-084809915d01\",\r\n    \"otp\": 666666\r\n      }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://api-ecommercetest.eta.gov.eg/asg/tax/validateTaxPayerOTP",
+							"protocol": "https",
+							"host": [
+								"api-ecommercetest",
+								"eta",
+								"gov",
+								"eg"
+							],
+							"path": [
+								"asg",
+								"tax",
+								"validateTaxPayerOTP"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
