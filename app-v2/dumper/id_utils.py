@@ -26,6 +26,7 @@ ENTITY_CONFIG: dict[str, dict] = {
     "categories":    {"entity": "CAT", "pad": 4, "type_scoped": True,  "seq_base": "seq_categories"},
     "vca":           {"entity": "VCA", "pad": 8, "type_scoped": True,  "seq_base": "seq_vca"},
     "dump_jobs":     {"entity": "JOB", "pad": 3, "type_scoped": False, "seq_base": "seq_dump_jobs"},
+    "unparsed_items":{"entity": "UNP", "pad": 8, "type_scoped": False, "seq_base": "seq_unparsed_items"},
 }
 
 

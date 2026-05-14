@@ -57,6 +57,7 @@ async def _make_request(
             if resp.status_code in (429, 403):
                 body = resp.text[:300]
                 logger.warning(f"HTTP {resp.status_code} on {path} | key {key_id} | body: {body}")
+                await api_key_manager.mark_failed(key_id, resp.status_code)
                 await api_key_manager.mark_rate_limited(key_id, resp.status_code)
                 # Don't increment transient_retries — these aren't transient, just per-key.
                 continue
@@ -66,12 +67,14 @@ async def _make_request(
                 logger.warning(
                     f"HTTP {resp.status_code} on {path} | key {key_id} | retry {transient_retries+1}/{settings.MAX_TRANSIENT_RETRIES}"
                 )
+                await api_key_manager.mark_failed(key_id, resp.status_code)
                 await api_key_manager.mark_rate_limited(key_id, resp.status_code)
                 transient_retries += 1
                 continue
 
             # 4xx other than 403/429 — request shape problem. Don't retry.
             logger.error(f"HTTP {resp.status_code} on {path} | body: {resp.text[:300]}")
+            await api_key_manager.mark_failed(key_id, resp.status_code)
             return None
 
         except (httpx.TimeoutException, httpx.NetworkError) as e:

@@ -295,6 +295,91 @@ async def get_status(manage_pool: bool = True) -> dict:
             await close_db_pool()
 
 
+async def get_api_counts(manage_pool: bool = True) -> dict:
+    """Return RapidAPI call accounting across all keys.
+
+    Three buckets per key (and aggregated):
+      success_calls  — HTTP 200 responses
+      failed_calls   — non-200 (429 / 403 / 5xx / other 4xx)
+      total_calls    — success + failed
+
+    Also returns a best-effort `pending_estimate` derived from the DFS state
+    (rows with NULL `*_fetched_at` cursors) — useful to gauge how much work
+    is left vs. done.
+
+    Safe to call any time. If the dumper has never been initialized, returns
+    zero-filled totals and an empty `per_key` list.
+    """
+    if manage_pool:
+        await create_db_pool()
+    try:
+        totals_row = await execute_query_one(
+            """
+            SELECT COALESCE(SUM(success_calls), 0) AS success,
+                   COALESCE(SUM(failed_calls),  0) AS failed,
+                   COALESCE(SUM(total_calls),   0) AS total
+            FROM rapid_api_api_key_state
+            """
+        )
+        totals = {
+            "success_calls": int(totals_row["success"]) if totals_row else 0,
+            "failed_calls":  int(totals_row["failed"])  if totals_row else 0,
+            "total_calls":   int(totals_row["total"])   if totals_row else 0,
+        }
+
+        per_key_rows = await execute_query(
+            """
+            SELECT key_id, success_calls, failed_calls, total_calls,
+                   last_status, last_used_at, cooldown_until
+            FROM rapid_api_api_key_state
+            ORDER BY key_id
+            """
+        )
+        per_key = [
+            {
+                "key_id": r["key_id"],
+                "success_calls": int(r["success_calls"]),
+                "failed_calls":  int(r["failed_calls"]),
+                "total_calls":   int(r["total_calls"]),
+                "last_status":   r["last_status"],
+                "last_used_at":  r["last_used_at"].isoformat() if r["last_used_at"] else None,
+                "cooldown_until": r["cooldown_until"].isoformat() if r["cooldown_until"] else None,
+            }
+            for r in per_key_rows
+        ]
+
+        # Best-effort pending estimate from the DFS cursors. Each pending
+        # row corresponds to exactly one API call in the deep crawl phase.
+        models_pending     = await execute_query_one(
+            "SELECT COUNT(*) AS n FROM rapid_api_manufacturer_vehicle_types WHERE models_fetched_at IS NULL"
+        )
+        vehicles_pending   = await execute_query_one(
+            "SELECT COUNT(*) AS n FROM rapid_api_models WHERE vehicles_fetched_at IS NULL"
+        )
+        categories_pending = await execute_query_one(
+            "SELECT COUNT(*) AS n FROM rapid_api_vehicles WHERE categories_fetched_at IS NULL"
+        )
+        mp = int(models_pending["n"]) if models_pending else 0
+        vp = int(vehicles_pending["n"]) if vehicles_pending else 0
+        cp = int(categories_pending["n"]) if categories_pending else 0
+
+        pending_estimate = {
+            "models_pending":     mp,
+            "vehicles_pending":   vp,
+            "categories_pending": cp,
+            "total_pending":      mp + vp + cp,
+        }
+
+        return {
+            "totals": totals,
+            "per_key": per_key,
+            "pending_estimate": pending_estimate,
+        }
+    finally:
+        if manage_pool:
+            await close_db_pool()
+
+
 async def reset_dump(manage_pool: bool = True) -> dict:
     """DANGEROUS: truncate all dump tables + restart sequences. Idempotent."""
     if manage_pool:

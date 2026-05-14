@@ -93,6 +93,12 @@ class APIKeyManager:
                 await asyncio.sleep(wait_sec + 1)
 
     async def mark_rate_limited(self, key_id: str, status_code: int) -> None:
+        """Set the per-key cooldown for 429 / 403 / 5xx.
+
+        Counter accounting (success_calls / failed_calls / total_calls) is
+        handled separately by mark_success() and mark_failed() so cooldown
+        logic and counters can never drift apart.
+        """
         if status_code == 429:
             cooldown_sec = settings.COOLDOWN_429_SEC
         elif status_code == 403:
@@ -117,19 +123,44 @@ class APIKeyManager:
         )
 
     async def mark_success(self, key_id: str) -> None:
+        """Bump success_calls + total_calls + legacy today/month buckets.
+
+        Atomic at the row level — concurrent calls don't lose increments.
+        """
         await execute_command(
             """
             UPDATE rapid_api_api_key_state
-            SET total_calls = total_calls + 1,
-                calls_today = calls_today + 1,
-                calls_month = calls_month + 1,
-                last_status = 200,
-                last_used_at = NOW(),
+            SET success_calls  = success_calls + 1,
+                total_calls    = total_calls + 1,
+                calls_today    = calls_today + 1,
+                calls_month    = calls_month + 1,
+                last_status    = 200,
+                last_used_at   = NOW(),
                 cooldown_until = NULL,
-                updated_at = NOW()
+                updated_at     = NOW()
             WHERE key_id = $1
             """,
             key_id,
+        )
+
+    async def mark_failed(self, key_id: str, status_code: int) -> None:
+        """Bump failed_calls + total_calls for any non-200 response from RapidAPI.
+
+        Covers 429 / 403 / 5xx / other 4xx. Does NOT touch cooldown — that's
+        mark_rate_limited()'s job.
+        """
+        await execute_command(
+            """
+            UPDATE rapid_api_api_key_state
+            SET failed_calls = failed_calls + 1,
+                total_calls  = total_calls + 1,
+                last_status  = $2,
+                last_used_at = NOW(),
+                updated_at   = NOW()
+            WHERE key_id = $1
+            """,
+            key_id,
+            status_code,
         )
 
     async def total_calls(self) -> int:
@@ -141,7 +172,9 @@ class APIKeyManager:
     async def summary(self) -> list[dict]:
         rows = await execute_query(
             """
-            SELECT key_id, cooldown_until, calls_today, calls_month, total_calls, last_used_at, last_status
+            SELECT key_id, cooldown_until, calls_today, calls_month,
+                   success_calls, failed_calls, total_calls,
+                   last_used_at, last_status
             FROM rapid_api_api_key_state
             ORDER BY key_id
             """
@@ -154,6 +187,8 @@ class APIKeyManager:
                     "cooldown_until": r["cooldown_until"].isoformat() if r["cooldown_until"] else None,
                     "calls_today": r["calls_today"],
                     "calls_month": r["calls_month"],
+                    "success_calls": r["success_calls"],
+                    "failed_calls": r["failed_calls"],
                     "total_calls": r["total_calls"],
                     "last_used_at": r["last_used_at"].isoformat() if r["last_used_at"] else None,
                     "last_status": r["last_status"],

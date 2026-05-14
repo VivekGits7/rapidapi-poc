@@ -13,11 +13,13 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 
-from dumper.runner import dump_main, get_status, request_stop, reset_dump
+from dumper.runner import dump_main, get_api_counts, get_status, request_stop, reset_dump
 from error import AllKeysExhaustedError, DumpAlreadyRunningError, NoResumableJobError
 from limiter import limiter
 from logger import get_logger
 from schema.dump import (
+    ApiCountsData,
+    ApiCountsResponse,
     DumpJobSummary,
     ResetDumpResponse,
     StartDumpRequest,
@@ -174,6 +176,38 @@ async def status_dump(request: Request) -> StatusDumpResponse:
             job=DumpJobSummary(status="idle", current_phase="idle", message=state.get("message")),
         )
     return StatusDumpResponse(success=True, message="Latest job state", job=DumpJobSummary(**state))
+
+
+# ==================== GET /api/dump/api-counts ====================
+
+@router.get(
+    "/api-counts",
+    response_model=ApiCountsResponse,
+    summary="Get RapidAPI call counts (success / failed / total — overall + per-key)",
+    responses={
+        **COMMON_ERROR_RESPONSES,
+        200: {"model": ApiCountsResponse, "description": "Aggregated + per-key RapidAPI call counts plus pending estimate"},
+    },
+)
+@limiter.limit("60/minute")
+async def api_counts(request: Request) -> ApiCountsResponse:
+    """
+    Get RapidAPI call counts — success, failed, total — aggregated and per-key.
+
+    - **totals.success_calls**: HTTP 200 responses across all keys
+    - **totals.failed_calls**: non-200 responses (429, 403, 5xx, other 4xx) across all keys
+    - **totals.total_calls**: `success_calls + failed_calls` — every call that reached RapidAPI
+    - **per_key**: same three buckets broken down per key, plus last status + cooldown
+    - **pending_estimate**: best-effort estimate of calls still to make in deep-crawl phase
+    - Network errors (no HTTP response from RapidAPI) are NOT counted in any bucket
+    - Counters persist across job runs; reset via `cli reset --yes-i-am-sure`
+    """
+    data = await get_api_counts(manage_pool=False)
+    return ApiCountsResponse(
+        success=True,
+        message="API call counts",
+        data=ApiCountsData(**data),
+    )
 
 
 # ==================== POST /api/dump/stop ====================

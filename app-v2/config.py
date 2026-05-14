@@ -1,5 +1,12 @@
+import os
+import re
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from dotenv import dotenv_values
+
+
+_RAPIDAPI_KEY_PATTERN = re.compile(r"^RAPIDAPI_KEY_(\d+)$")
 
 
 class Settings(BaseSettings):
@@ -13,11 +20,10 @@ class Settings(BaseSettings):
     # ==================== CORS CONFIGURATION ====================
     FRONTEND_URL: str = Field(default="http://localhost:3000", description="Frontend URL")
 
-    # ==================== RAPIDAPI CONFIGURATION (4 keys) ====================
-    RAPIDAPI_KEY_1: str = Field(default="", description="RapidAPI key 1")
-    RAPIDAPI_KEY_2: str = Field(default="", description="RapidAPI key 2")
-    RAPIDAPI_KEY_3: str = Field(default="", description="RapidAPI key 3")
-    RAPIDAPI_KEY_4: str = Field(default="", description="RapidAPI key 4")
+    # ==================== RAPIDAPI CONFIGURATION ====================
+    # Keys are discovered dynamically from .env / os.environ — any number of
+    # `RAPIDAPI_KEY_<n>` entries work. No fixed upper bound. See
+    # `rapidapi_keys` property below.
     RAPIDAPI_HOST: str = Field(default="auto-parts-catalog.p.rapidapi.com", description="RapidAPI host header")
     RAPIDAPI_BASE_URL: str = Field(default="https://auto-parts-catalog.p.rapidapi.com", description="RapidAPI base URL")
     RAPIDAPI_TIMEOUT: float = Field(default=30.0, description="HTTP request timeout (seconds)")
@@ -53,16 +59,27 @@ class Settings(BaseSettings):
 
     @property
     def rapidapi_keys(self) -> list[str]:
-        return [
-            k
-            for k in (
-                self.RAPIDAPI_KEY_1,
-                self.RAPIDAPI_KEY_2,
-                self.RAPIDAPI_KEY_3,
-                self.RAPIDAPI_KEY_4,
-            )
-            if k
-        ]
+        """Discover every `RAPIDAPI_KEY_<n>` from .env + os.environ.
+
+        Returns the keys in numeric order (KEY_1, KEY_2, ...) with no upper
+        bound. Add or remove keys in `.env` and they'll be picked up next
+        time the app boots — no code change required. Empty values filtered.
+        """
+        merged: dict[str, str] = {}
+        # .env values first, then live env wins (handy for prod where keys
+        # come from real env vars rather than a checked-in file).
+        for k, v in (dotenv_values(".env") or {}).items():
+            if v is not None:
+                merged[k] = v
+        merged.update(os.environ)
+
+        found: list[tuple[int, str]] = []
+        for var, val in merged.items():
+            m = _RAPIDAPI_KEY_PATTERN.match(var)
+            if m and val:
+                found.append((int(m.group(1)), val))
+        found.sort(key=lambda t: t[0])
+        return [v for _, v in found]
 
     @property
     def is_production(self) -> bool:

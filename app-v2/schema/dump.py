@@ -30,11 +30,95 @@ class PhaseCounts(BaseModel):
 class KeySummary(BaseModel):
     key_id: str = Field(..., examples=["KEY_1"])
     cooldown_until: Optional[str] = Field(None, description="ISO-8601 datetime; null if available now")
-    calls_today: int = Field(..., examples=[1240])
-    calls_month: int = Field(..., examples=[18450])
-    total_calls: int = Field(..., examples=[103982])
+    calls_today: int = Field(..., examples=[1240], description="Legacy success-only daily bucket")
+    calls_month: int = Field(..., examples=[18450], description="Legacy success-only monthly bucket")
+    success_calls: int = Field(..., examples=[103950], description="HTTP 200 responses")
+    failed_calls:  int = Field(..., examples=[32],     description="Non-200 responses (429, 403, 5xx, other 4xx)")
+    total_calls:   int = Field(..., examples=[103982], description="success_calls + failed_calls")
     last_used_at: Optional[str] = None
     last_status: Optional[int] = Field(None, examples=[200])
+
+
+# ==================== API-CALL COUNTS ENDPOINT ====================
+
+class ApiCallTotals(BaseModel):
+    """Aggregated call counts across every RapidAPI key."""
+
+    success_calls: int = Field(..., examples=[442150], description="Calls returning HTTP 200")
+    failed_calls:  int = Field(..., examples=[37],     description="Non-200 responses (429, 403, 5xx, other 4xx)")
+    total_calls:   int = Field(..., examples=[442187], description="success_calls + failed_calls — every call that reached RapidAPI")
+
+
+class KeyApiCounts(BaseModel):
+    """Per-key call counts + most-recent state."""
+
+    key_id: str = Field(..., examples=["KEY_1"])
+    success_calls: int = Field(..., examples=[110540])
+    failed_calls:  int = Field(..., examples=[8])
+    total_calls:   int = Field(..., examples=[110548])
+    last_status: Optional[int] = Field(None, examples=[200])
+    last_used_at: Optional[str] = Field(None, description="ISO-8601 datetime")
+    cooldown_until: Optional[str] = Field(None, description="ISO-8601 datetime; null if available now")
+
+
+class PendingEstimate(BaseModel):
+    """Best-effort estimate of API calls still to make, derived from DFS cursors.
+
+    Each pending row corresponds to exactly one API call in the deep-crawl
+    phase. Reference + manufacturers phases are excluded — they're tiny (14
+    total) and only relevant for the very first run.
+    """
+
+    models_pending:     int = Field(..., examples=[5],     description="MVT rows with models_fetched_at IS NULL")
+    vehicles_pending:   int = Field(..., examples=[1200],  description="Models with vehicles_fetched_at IS NULL")
+    categories_pending: int = Field(..., examples=[45000], description="Vehicles with categories_fetched_at IS NULL")
+    total_pending:      int = Field(..., examples=[46205], description="Sum of the three buckets above")
+
+
+class ApiCountsData(BaseModel):
+    totals:           ApiCallTotals
+    per_key:          List[KeyApiCounts]
+    pending_estimate: PendingEstimate
+
+
+class ApiCountsResponse(BaseResponse):
+    data: ApiCountsData
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "success": True,
+            "message": "API call counts",
+            "data": {
+                "totals": {
+                    "success_calls": 442150,
+                    "failed_calls":  37,
+                    "total_calls":   442187,
+                },
+                "per_key": [
+                    {
+                        "key_id": "KEY_1",
+                        "success_calls": 110540, "failed_calls": 8, "total_calls": 110548,
+                        "last_status": 200,
+                        "last_used_at": "2026-05-14T01:23:45+00:00",
+                        "cooldown_until": None,
+                    },
+                    {
+                        "key_id": "KEY_2",
+                        "success_calls": 110603, "failed_calls": 12, "total_calls": 110615,
+                        "last_status": 429,
+                        "last_used_at": "2026-05-14T01:23:42+00:00",
+                        "cooldown_until": "2026-05-14T01:33:42+00:00",
+                    },
+                ],
+                "pending_estimate": {
+                    "models_pending": 0,
+                    "vehicles_pending": 1200,
+                    "categories_pending": 45000,
+                    "total_pending": 46200,
+                },
+            },
+        }
+    })
 
 
 # ==================== ENDPOINT REQUESTS ====================
@@ -115,7 +199,8 @@ class StatusDumpResponse(BaseResponse):
                 },
                 "keys": [
                     {"key_id": "KEY_1", "cooldown_until": None, "calls_today": 1240,
-                     "calls_month": 18450, "total_calls": 103982,
+                     "calls_month": 18450, "success_calls": 103950, "failed_calls": 32,
+                     "total_calls": 103982,
                      "last_used_at": "2026-05-14T01:23:45Z", "last_status": 200}
                 ],
                 "total_api_calls": 442187,

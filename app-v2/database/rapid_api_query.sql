@@ -124,13 +124,18 @@ CREATE TABLE IF NOT EXISTS rapid_api_countries (
 CREATE INDEX IF NOT EXISTS idx_rapid_api_countries_external_id ON rapid_api_countries(external_id);
 
 -- API 3 — Vehicle Types
+-- `supports_vehicles_api` lets the deep-crawl phase fast-skip API 8 for types
+-- where we've already proven the API returns "not supported yet" (AXLE / AFT /
+-- ENG / VOEM and similar). NULL means we haven't probed it yet — the dumper
+-- attempts the call once, then sets this based on the response.
 CREATE TABLE IF NOT EXISTS rapid_api_vehicle_types (
-    vehicle_type_id TEXT        PRIMARY KEY,          -- VTY_001 (PC), VTY_002 (CV), ...
-    external_id     INT         NOT NULL UNIQUE,      -- from API: id (1..11)
-    name            VARCHAR(100) NOT NULL,            -- from API: vehicleType ("PC", "CV", "Motorcycle"...)
-    type_code       VARCHAR(20) NOT NULL UNIQUE,      -- our short code: PC, CV, MOTO, LCV, DCAB, AXLE, ENG, BUS, AFT, TRAC, VOEM
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    vehicle_type_id        TEXT        PRIMARY KEY,          -- VTY_001 (PC), VTY_002 (CV), ...
+    external_id            INT         NOT NULL UNIQUE,      -- from API: id (1..11)
+    name                   VARCHAR(100) NOT NULL,            -- from API: vehicleType ("PC", "CV", "Motorcycle"...)
+    type_code              VARCHAR(20) NOT NULL UNIQUE,      -- our short code: PC, CV, MOTO, LCV, DCAB, AXLE, ENG, BUS, AFT, TRAC, VOEM
+    supports_vehicles_api  BOOLEAN,                          -- NULL=unknown, TRUE=confirmed, FALSE="not supported yet" → fast-skip
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_rapid_api_vehicle_types_external_id ON rapid_api_vehicle_types(external_id);
 CREATE INDEX IF NOT EXISTS idx_rapid_api_vehicle_types_type_code   ON rapid_api_vehicle_types(type_code);
@@ -171,16 +176,19 @@ CREATE TABLE IF NOT EXISTS rapid_api_models (
     country_filter_id   INT         NOT NULL,
     year_from           DATE,                         -- from API: modelYearFrom (nullable)
     year_to             DATE,                         -- from API: modelYearTo (nullable)
-    vehicles_fetched_at TIMESTAMPTZ,                  -- DFS cursor: NULL = vehicles not yet fetched for this model
+    vehicles_fetched_at  TIMESTAMPTZ,                 -- DFS cursor: NULL = vehicles not yet fetched for this model
+    vehicles_api_status  VARCHAR(20),                 -- has_data | empty | not_supported | malformed | failed | NULL
+    vehicles_api_message TEXT,                        -- the API's prose response when status != has_data (e.g. "not supported yet")
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (external_id, manufacturer_id, vehicle_type_id, lang_id, country_filter_id)
 );
-CREATE INDEX IF NOT EXISTS idx_rapid_api_models_external_id        ON rapid_api_models(external_id);
-CREATE INDEX IF NOT EXISTS idx_rapid_api_models_manufacturer_id    ON rapid_api_models(manufacturer_id);
-CREATE INDEX IF NOT EXISTS idx_rapid_api_models_vehicle_type_id    ON rapid_api_models(vehicle_type_id);
-CREATE INDEX IF NOT EXISTS idx_rapid_api_models_vehicles_pending   ON rapid_api_models(model_id)
+CREATE INDEX IF NOT EXISTS idx_rapid_api_models_external_id          ON rapid_api_models(external_id);
+CREATE INDEX IF NOT EXISTS idx_rapid_api_models_manufacturer_id      ON rapid_api_models(manufacturer_id);
+CREATE INDEX IF NOT EXISTS idx_rapid_api_models_vehicle_type_id      ON rapid_api_models(vehicle_type_id);
+CREATE INDEX IF NOT EXISTS idx_rapid_api_models_vehicles_pending     ON rapid_api_models(model_id)
     WHERE vehicles_fetched_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_rapid_api_models_vehicles_api_status  ON rapid_api_models(vehicles_api_status);
 
 -- ==================== VEHICLES (engine variants from API 8) ====================
 CREATE TABLE IF NOT EXISTS rapid_api_vehicles (
@@ -299,15 +307,42 @@ CREATE TABLE IF NOT EXISTS rapid_api_dump_jobs (
 CREATE INDEX IF NOT EXISTS idx_rapid_api_dump_jobs_status     ON rapid_api_dump_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_rapid_api_dump_jobs_created_at ON rapid_api_dump_jobs(created_at DESC);
 
--- ==================== API KEY STATE (cooldown persistence) ====================
+-- ==================== UNPARSED ITEMS (catch-all audit table) ====================
+-- Every API item that couldn't be shoehorned into the typed schema lands here.
+-- We never silently skip data — if it can't be parsed it gets a row here so
+-- it can be inspected (and re-processed) later.
+CREATE SEQUENCE IF NOT EXISTS seq_unparsed_items START 1;
+
+CREATE TABLE IF NOT EXISTS rapid_api_unparsed_items (
+    unparsed_id   TEXT         PRIMARY KEY,    -- UNP_00000001
+    api_path      TEXT         NOT NULL,       -- RapidAPI path the item came from
+    entity_type   VARCHAR(50)  NOT NULL,       -- 'language' | 'country' | 'vehicle_type' | 'manufacturer' | 'model' | 'vehicle' | 'category'
+    parent_ref    JSONB,                       -- trace-back context, e.g. {"model_id":"MOD_PC_000123"}
+    raw_item      JSONB        NOT NULL,       -- the original item exactly as the API returned it
+    reason        VARCHAR(100) NOT NULL,       -- 'non_list_response' | 'non_dict_item' | 'missing_external_id' | 'unparseable_external_id'
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_rapid_api_unparsed_entity   ON rapid_api_unparsed_items(entity_type);
+CREATE INDEX IF NOT EXISTS idx_rapid_api_unparsed_reason   ON rapid_api_unparsed_items(reason);
+CREATE INDEX IF NOT EXISTS idx_rapid_api_unparsed_created  ON rapid_api_unparsed_items(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rapid_api_unparsed_api_path ON rapid_api_unparsed_items(api_path);
+
+-- ==================== API KEY STATE (cooldown persistence + per-key call counts) ====================
+-- success_calls / failed_calls / total_calls invariant:
+--   total_calls = success_calls + failed_calls
+-- Every call that actually reaches RapidAPI lands in exactly one bucket
+-- (success on 200, failed on 429 / 403 / 5xx / other 4xx). Network errors
+-- never reached RapidAPI so they're not counted.
 CREATE TABLE IF NOT EXISTS rapid_api_api_key_state (
     key_id          VARCHAR(20) PRIMARY KEY,        -- 'KEY_1' .. 'KEY_4'
     key_value       TEXT        NOT NULL,           -- actual RapidAPI key
     cooldown_until  TIMESTAMPTZ,                    -- NULL if available; otherwise wait until this time
     last_status     INT,                            -- last HTTP status (200, 429, 403, ...)
-    calls_today     INT         NOT NULL DEFAULT 0,
-    calls_month     INT         NOT NULL DEFAULT 0,
-    total_calls     INT         NOT NULL DEFAULT 0,
+    calls_today     INT         NOT NULL DEFAULT 0, -- legacy success-only daily bucket (kept for backwards compat)
+    calls_month     INT         NOT NULL DEFAULT 0, -- legacy success-only monthly bucket (kept for backwards compat)
+    success_calls   INT         NOT NULL DEFAULT 0, -- HTTP 200 responses
+    failed_calls    INT         NOT NULL DEFAULT 0, -- non-200 responses (429, 403, 5xx, other 4xx)
+    total_calls     INT         NOT NULL DEFAULT 0, -- success + failed
     last_used_at    TIMESTAMPTZ,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

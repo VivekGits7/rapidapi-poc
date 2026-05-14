@@ -8,6 +8,7 @@ BFS, 11 calls (one per vehicle_type). Idempotent.
 from logger import get_logger
 from dumper.http_client import api_get
 from dumper.id_utils import new_id
+from dumper.unparsed import UnparsedEntity, UnparsedReason, log_unparsed
 from services.db import execute_command, execute_query, execute_query_one
 
 logger = get_logger("dumper.phase2")
@@ -56,21 +57,40 @@ async def _fetch_manufacturers_for_type(
     api_type_id: int, vehicle_type_id: str, type_code: str
 ) -> None:
     logger.info(f"Manufacturers for type {api_type_id} ({type_code})")
-    data = await api_get(f"/manufacturers/list/type-id/{api_type_id}")
+    path = f"/manufacturers/list/type-id/{api_type_id}"
+    parent = {"vehicle_type_id": vehicle_type_id, "type_code": type_code, "api_type_id": api_type_id}
+
+    data = await api_get(path)
     if not isinstance(data, dict):
         logger.warning(f"Manufacturers API for type {api_type_id} returned: {type(data).__name__}")
+        await log_unparsed(path, UnparsedEntity.MANUFACTURER, data, UnparsedReason.NON_LIST_RESPONSE, parent_ref=parent)
         return
     items = data.get("manufacturers", []) or []
+    if not isinstance(items, list):
+        await log_unparsed(path, UnparsedEntity.MANUFACTURER, items, UnparsedReason.NON_LIST_RESPONSE, parent_ref=parent)
+        items = []
     logger.info(f"  → {data.get('countManufactures', len(items))} manufacturers reported")
 
     for item in items:
+        if not isinstance(item, dict):
+            await log_unparsed(path, UnparsedEntity.MANUFACTURER, item, UnparsedReason.NON_DICT_ITEM, parent_ref=parent)
+            continue
+
         ext_raw = item.get("manufacturerId")
         name = item.get("manufacturerName", "")
         try:
             ext_id = int(ext_raw) if ext_raw is not None else None
         except (TypeError, ValueError):
+            await log_unparsed(path, UnparsedEntity.MANUFACTURER, item, UnparsedReason.UNPARSEABLE_EXTERNAL_ID, parent_ref=parent)
             continue
-        if ext_id is None or not name:
+        if ext_id is None:
+            await log_unparsed(path, UnparsedEntity.MANUFACTURER, item, UnparsedReason.MISSING_EXTERNAL_ID, parent_ref=parent)
+            continue
+        if not name:
+            await log_unparsed(
+                path, UnparsedEntity.MANUFACTURER, item, UnparsedReason.MISSING_EXTERNAL_ID,
+                parent_ref={**parent, "note": "missing manufacturerName"},
+            )
             continue
 
         manufacturer_id = await _upsert_manufacturer(ext_id, name)
